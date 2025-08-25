@@ -141,6 +141,7 @@ namespace TradingConsole.Wpf.Services
             DashboardInstrument instrumentForAnalysis = GetInstrumentForVolumeAnalysis(instrument);
 
             _signalGenerationService.GenerateAllSignals(instrument, instrumentForAnalysis, result, _mainViewModel.OptionChainRows);
+            RunDailyBiasAnalysis(instrument);
 
             if (newCandleFormed)
             {

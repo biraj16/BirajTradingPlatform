@@ -136,27 +136,37 @@ namespace TradingConsole.Wpf.Services
             int bearScore = 0;
             MarketThesis finalThesis = baseThesis;
 
-            IEnumerable<SignalDriver> driversToEvaluate;
+            // --- REVISED LOGIC: Build the list of drivers to evaluate dynamically ---
+            var driversToEvaluate = new List<SignalDriver>();
+
             switch (baseThesis)
             {
                 case MarketThesis.Bullish_Trend:
                 case MarketThesis.Bearish_Trend:
                 case MarketThesis.Bullish_Rotation:
                 case MarketThesis.Bearish_Rotation:
-                    driversToEvaluate = _settingsViewModel.Strategy.TrendingBullDrivers.Concat(_settingsViewModel.Strategy.TrendingBearDrivers);
+                    driversToEvaluate.AddRange(_settingsViewModel.Strategy.TrendingBullDrivers);
+                    driversToEvaluate.AddRange(_settingsViewModel.Strategy.TrendingBearDrivers);
                     break;
+
                 case MarketThesis.Balancing:
-                    driversToEvaluate = _settingsViewModel.Strategy.RangeBoundBullishDrivers.Concat(_settingsViewModel.Strategy.RangeBoundBearishDrivers);
-                    break;
-                default:
-                    driversToEvaluate = Enumerable.Empty<SignalDriver>();
+                    // In a balancing market, consider BOTH range-bound and trending drivers.
+                    // This allows the score to build up for a potential breakout.
+                    driversToEvaluate.AddRange(_settingsViewModel.Strategy.RangeBoundBullishDrivers);
+                    driversToEvaluate.AddRange(_settingsViewModel.Strategy.RangeBoundBearishDrivers);
+                    driversToEvaluate.AddRange(_settingsViewModel.Strategy.TrendingBullDrivers);
+                    driversToEvaluate.AddRange(_settingsViewModel.Strategy.TrendingBearDrivers);
                     break;
             }
 
             if (r.MarketRegime == "High Volatility")
             {
-                driversToEvaluate = driversToEvaluate.Concat(_settingsViewModel.Strategy.VolatileBullishDrivers).Concat(_settingsViewModel.Strategy.VolatileBearishDrivers);
+                driversToEvaluate.AddRange(_settingsViewModel.Strategy.VolatileBullishDrivers);
+                driversToEvaluate.AddRange(_settingsViewModel.Strategy.VolatileBearishDrivers);
             }
+
+            // Ensure we only evaluate each driver once
+            driversToEvaluate = driversToEvaluate.Distinct().ToList();
 
             foreach (var driver in driversToEvaluate.Where(d => d.IsEnabled))
             {
@@ -183,7 +193,7 @@ namespace TradingConsole.Wpf.Services
                 if (ibBreakout || vahBreakout)
                 {
                     finalThesis = MarketThesis.Bullish_Breakout_Attempt;
-                    driversToEvaluate = _settingsViewModel.Strategy.BreakoutBullishDrivers.Concat(_settingsViewModel.Strategy.BreakoutBearishDrivers);
+                    driversToEvaluate = _settingsViewModel.Strategy.BreakoutBullishDrivers.Concat(_settingsViewModel.Strategy.BreakoutBearishDrivers).ToList();
 
                     // Recalculate score with the breakout playbook
                     bullScore = 0;
@@ -200,7 +210,7 @@ namespace TradingConsole.Wpf.Services
                 else if (ibBreakdown || valBreakdown)
                 {
                     finalThesis = MarketThesis.Bearish_Breakdown_Attempt;
-                    driversToEvaluate = _settingsViewModel.Strategy.BreakoutBullishDrivers.Concat(_settingsViewModel.Strategy.BreakoutBearishDrivers);
+                    driversToEvaluate = _settingsViewModel.Strategy.BreakoutBullishDrivers.Concat(_settingsViewModel.Strategy.BreakoutBearishDrivers).ToList();
 
                     // Recalculate score with the breakout playbook
                     bullScore = 0;

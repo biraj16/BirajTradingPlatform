@@ -132,7 +132,7 @@ namespace TradingConsole.Core.Models
             };
         }
     }
-
+    // ... the rest of the file remains the same
     public class AutomationSettings : ObservableModel
     {
         private bool _isAutomationEnabled;

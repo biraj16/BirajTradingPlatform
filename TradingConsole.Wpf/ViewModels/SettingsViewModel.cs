@@ -15,6 +15,7 @@ namespace TradingConsole.Wpf.ViewModels
 {
     public class SettingsViewModel : INotifyPropertyChanged
     {
+        // ... all other properties and methods remain the same ...
         private readonly SettingsService _settingsService;
         private AppSettings _settings;
         private readonly MainViewModel _mainViewModel;

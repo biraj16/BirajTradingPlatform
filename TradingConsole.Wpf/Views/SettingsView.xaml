@@ -10,7 +10,6 @@
              d:DataContext="{d:DesignInstance Type=viewmodels:SettingsViewModel, IsDesignTimeCreatable=True}"
              d:DesignHeight="800" d:DesignWidth="1600">
     <UserControl.Resources>
-        <!-- Styles for consistent look and feel -->
         <Style TargetType="GroupBox">
             <Setter Property="Padding" Value="15"/>
             <Setter Property="Margin" Value="5"/>
@@ -45,18 +44,13 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <StackPanel Margin="10">
 
-            <!-- Main layout grid with three columns -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <!-- Column 0 for App Settings -->
                     <ColumnDefinition Width="Auto"/>
-                    <!-- Column 1 for Risk/Levels -->
                     <ColumnDefinition Width="*"/>
-                    <!-- Column 2 for Strategy -->
                 </Grid.ColumnDefinitions>
 
-                <!-- Left Column (Column 0) -->
                 <StackPanel Grid.Column="0" VerticalAlignment="Top">
                     <GroupBox Header="Fund Summary" MinWidth="350"
                               DataContext="{Binding DataContext.Portfolio.FundDetails, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -185,9 +179,7 @@
                     </GroupBox>
                 </StackPanel>
 
-                <!-- Middle Column (Column 1) -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="10,0,0,0">
-                    <!-- Automation Settings -->
                     <GroupBox Header="Trade Automation" MinWidth="550"
                               DataContext="{Binding DataContext.AutomationSettings, RelativeSource={RelativeSource AncestorType=UserControl}}">
                         <StackPanel>
@@ -360,7 +352,6 @@
                     </GroupBox>
                 </StackPanel>
 
-                <!-- Right Column (Column 2) -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Top" Margin="10,0,0,0">
                     <GroupBox Header="Strategy Driver Weights" MinWidth="550"
                               DataContext="{Binding DataContext.Strategy, RelativeSource={RelativeSource AncestorType=UserControl}}">
@@ -447,8 +438,6 @@
                                     </StackPanel>
                                 </ScrollViewer>
                             </TabItem>
-                            <!-- FIXED: Corrected the invalid XML comment -->
-                            <!-- ADDED: New TabItem for the Breakout drivers -->
                             <TabItem Header="Breakout">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="600">
                                     <StackPanel>
