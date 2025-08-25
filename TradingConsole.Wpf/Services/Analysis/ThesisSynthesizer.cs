@@ -50,7 +50,8 @@ namespace TradingConsole.Wpf.Services
             if (isChoppy)
             {
                 playbook = "Choppy / Conflicting Signals";
-                result.MarketThesis = MarketThesis.Choppy; // Override thesis if choppy
+                // --- THE FIX: The line that overrode the MarketThesis has been REMOVED ---
+                // result.MarketThesis = MarketThesis.Choppy; // This incorrect override is now gone.
             }
             else if (result.MarketThesis == MarketThesis.Bullish_Breakout_Attempt) playbook = "Bullish Breakout Attempt";
             else if (result.MarketThesis == MarketThesis.Bearish_Breakdown_Attempt) playbook = "Bearish Breakdown Attempt";

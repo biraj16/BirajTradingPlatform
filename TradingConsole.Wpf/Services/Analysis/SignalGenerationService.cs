@@ -78,18 +78,27 @@ namespace TradingConsole.Wpf.Services
 
             if (oneMinCandles != null && oneMinCandles.Any())
             {
-                result.EmaSignal1Min = _indicatorService.CalculateEmaSignal(instrumentForAnalysis.SecurityId, oneMinCandles, _stateManager.MultiTimeframePriceEmaState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
-                result.VwapEmaSignal1Min = _indicatorService.CalculateEmaSignal(instrumentForAnalysis.SecurityId, oneMinCandles, _stateManager.MultiTimeframeVwapEmaState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, true);
+                var priceState1m = _stateManager.MultiTimeframePriceEmaState[instrumentForAnalysis.SecurityId][TimeSpan.FromMinutes(1)];
+                result.EmaSignal1Min = _indicatorService.CalculateEmaSignal(oneMinCandles, priceState1m, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
+
+                var vwapState1m = _stateManager.MultiTimeframeVwapEmaState[instrumentForAnalysis.SecurityId][TimeSpan.FromMinutes(1)];
+                result.VwapEmaSignal1Min = _indicatorService.CalculateEmaSignal(oneMinCandles, vwapState1m, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, true);
             }
             if (fiveMinCandles != null && fiveMinCandles.Any())
             {
-                result.EmaSignal5Min = _indicatorService.CalculateEmaSignal(instrumentForAnalysis.SecurityId, fiveMinCandles, _stateManager.MultiTimeframePriceEmaState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
-                result.VwapEmaSignal5Min = _indicatorService.CalculateEmaSignal(instrumentForAnalysis.SecurityId, fiveMinCandles, _stateManager.MultiTimeframeVwapEmaState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, true);
+                var priceState5m = _stateManager.MultiTimeframePriceEmaState[instrumentForAnalysis.SecurityId][TimeSpan.FromMinutes(5)];
+                result.EmaSignal5Min = _indicatorService.CalculateEmaSignal(fiveMinCandles, priceState5m, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
+
+                var vwapState5m = _stateManager.MultiTimeframeVwapEmaState[instrumentForAnalysis.SecurityId][TimeSpan.FromMinutes(5)];
+                result.VwapEmaSignal5Min = _indicatorService.CalculateEmaSignal(fiveMinCandles, vwapState5m, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, true);
             }
             if (fifteenMinCandles != null && fifteenMinCandles.Any())
             {
-                result.EmaSignal15Min = _indicatorService.CalculateEmaSignal(instrumentForAnalysis.SecurityId, fifteenMinCandles, _stateManager.MultiTimeframePriceEmaState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
-                result.VwapEmaSignal15Min = _indicatorService.CalculateEmaSignal(instrumentForAnalysis.SecurityId, fifteenMinCandles, _stateManager.MultiTimeframeVwapEmaState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, true);
+                var priceState15m = _stateManager.MultiTimeframePriceEmaState[instrumentForAnalysis.SecurityId][TimeSpan.FromMinutes(15)];
+                result.EmaSignal15Min = _indicatorService.CalculateEmaSignal(fifteenMinCandles, priceState15m, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
+
+                var vwapState15m = _stateManager.MultiTimeframeVwapEmaState[instrumentForAnalysis.SecurityId][TimeSpan.FromMinutes(15)];
+                result.VwapEmaSignal15Min = _indicatorService.CalculateEmaSignal(fifteenMinCandles, vwapState15m, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, true);
             }
 
             if (oneMinCandles != null && oneMinCandles.Any())

@@ -108,21 +108,32 @@ namespace TradingConsole.Wpf.Services
 
             if (currentCandle == null || currentCandle.Timestamp != candleTimestamp)
             {
+                // --- NEW LOGIC: A new candle is about to be formed. ---
+                // The 'currentCandle' is now the last *completed* candle.
+                if (currentCandle != null)
+                {
+                    // Update the persistent EMA state with the final data from the completed candle.
+                    var priceState = _stateManager.MultiTimeframePriceEmaState[instrument.SecurityId][timeframe];
+                    _indicatorService.UpdateEmaState(currentCandle, priceState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
+
+                    var vwapState = _stateManager.MultiTimeframeVwapEmaState[instrument.SecurityId][timeframe];
+                    _indicatorService.UpdateEmaState(currentCandle, vwapState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, true);
+
+                    if (timeframe.TotalMinutes == 1) UpdateMarketProfileForCandle(instrument, currentCandle);
+                }
+
                 var newCandle = new Candle { Timestamp = candleTimestamp, Open = instrument.LTP, High = instrument.LTP, Low = instrument.LTP, Close = instrument.LTP, Volume = instrument.LastTradedQuantity, OpenInterest = (long)instrument.OpenInterest, Vwap = instrument.AvgTradePrice };
                 candles.Add(newCandle);
 
-                if (currentCandle != null)
-                {
-                    if (timeframe.TotalMinutes == 1) UpdateMarketProfileForCandle(instrument, currentCandle);
-                }
                 CandleUpdated?.Invoke(instrument.SecurityId, newCandle, timeframe);
                 return true;
             }
             else
             {
+                // This is the currently forming candle, update its values on every tick.
                 currentCandle.High = Math.Max(currentCandle.High, instrument.LTP);
                 currentCandle.Low = Math.Min(currentCandle.Low, instrument.LTP);
-                currentCandle.Close = instrument.LTP;
+                currentCandle.Close = instrument.LTP; // Live price
                 currentCandle.Volume += instrument.LastTradedQuantity;
                 currentCandle.OpenInterest = (long)instrument.OpenInterest;
                 CandleUpdated?.Invoke(instrument.SecurityId, currentCandle, timeframe);
@@ -141,7 +152,6 @@ namespace TradingConsole.Wpf.Services
             DashboardInstrument instrumentForAnalysis = GetInstrumentForVolumeAnalysis(instrument);
 
             _signalGenerationService.GenerateAllSignals(instrument, instrumentForAnalysis, result, _mainViewModel.OptionChainRows);
-            RunDailyBiasAnalysis(instrument);
 
             if (newCandleFormed)
             {

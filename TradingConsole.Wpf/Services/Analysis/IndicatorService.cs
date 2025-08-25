@@ -20,6 +20,54 @@ namespace TradingConsole.Wpf.Services
             _stateManager = stateManager;
         }
 
+        // --- NEW METHOD: This is now the ONLY method that modifies the persistent EMA state. ---
+        /// <summary>
+        /// Updates the persistent EMA state using the closing price of a completed candle.
+        /// </summary>
+        public void UpdateEmaState(Candle closedCandle, EmaState state, int shortEma, int longEma, bool useVwap)
+        {
+            var price = useVwap ? closedCandle.Vwap : closedCandle.Close;
+            if (price == 0) return; // Do not update state with invalid data
+
+            decimal shortMultiplier = 2.0m / (shortEma + 1);
+            decimal longMultiplier = 2.0m / (longEma + 1);
+
+            // If state is uninitialized, this single candle won't be enough, but we can start the process
+            if (state.CurrentShortEma == 0) state.CurrentShortEma = price;
+            if (state.CurrentLongEma == 0) state.CurrentLongEma = price;
+
+            state.CurrentShortEma = (price - state.CurrentShortEma) * shortMultiplier + state.CurrentShortEma;
+            state.CurrentLongEma = (price - state.CurrentLongEma) * longMultiplier + state.CurrentLongEma;
+        }
+
+        // --- REVISED METHOD: This method NO LONGER MODIFIES THE STATE. ---
+        /// <summary>
+        /// Calculates a real-time signal based on the last stable EMA state and the current live price.
+        /// </summary>
+        public string CalculateEmaSignal(List<Candle> candles, EmaState state, int shortEma, int longEma, bool useVwap)
+        {
+            if (!candles.Any()) return "Building History...";
+
+            // Use the last known stable state.
+            var baseShortEma = state.CurrentShortEma;
+            var baseLongEma = state.CurrentLongEma;
+
+            if (baseShortEma == 0 || baseLongEma == 0) return "Warming Up...";
+
+            // Use the live price of the currently forming candle for a real-time signal.
+            var livePrice = useVwap ? candles.Last().Vwap : candles.Last().Close;
+            if (livePrice == 0) return "Awaiting Price...";
+
+            // Calculate temporary, "live" EMA values without saving them.
+            decimal liveShortEma = (livePrice - baseShortEma) * (2.0m / (shortEma + 1)) + baseShortEma;
+            decimal liveLongEma = (livePrice - baseLongEma) * (2.0m / (longEma + 1)) + baseLongEma;
+
+            if (liveShortEma > liveLongEma) return "Bullish Cross";
+            if (liveShortEma < liveLongEma) return "Bearish Cross";
+
+            return "Neutral";
+        }
+
         public decimal CalculateRsi(List<Candle> candles, RsiState state, int period)
         {
             if (candles.Count <= period) return 0m;
@@ -237,44 +285,6 @@ namespace TradingConsole.Wpf.Services
             // ---------------------------------------------
 
             return state.CurrentObv;
-        }
-
-        public string CalculateEmaSignal(string securityId, List<Candle> candles, ConcurrentDictionary<string, ConcurrentDictionary<TimeSpan, EmaState>> stateDictionary, int shortEma, int longEma, bool useVwap)
-        {
-            if (candles.Count < 2) return "Building History...";
-
-            var timeframe = candles[1].Timestamp - candles[0].Timestamp;
-            var state = stateDictionary[securityId][timeframe];
-            var lastCandle = candles.Last();
-            var price = useVwap ? lastCandle.Vwap : lastCandle.Close;
-
-            // --- THE FIX: Check if the state is already loaded from the previous day ---
-            if (state.CurrentShortEma == 0 || state.CurrentLongEma == 0)
-            {
-                // If no state is loaded, perform the standard warm-up
-                if (candles.Count >= longEma)
-                {
-                    var prices = candles.Select(c => useVwap ? c.Vwap : c.Close).ToList();
-                    state.CurrentShortEma = CalculateFullEma(prices, shortEma);
-                    state.CurrentLongEma = CalculateFullEma(prices, longEma);
-                }
-                else
-                {
-                    // Not enough data and no saved state, so we must wait
-                    return "Warming Up...";
-                }
-            }
-
-            // Standard EMA calculation using either the loaded state or the warmed-up value
-            decimal shortMultiplier = 2.0m / (shortEma + 1);
-            decimal longMultiplier = 2.0m / (longEma + 1);
-
-            state.CurrentShortEma = (price - state.CurrentShortEma) * shortMultiplier + state.CurrentShortEma;
-            state.CurrentLongEma = (price - state.CurrentLongEma) * longMultiplier + state.CurrentLongEma;
-
-            if (state.CurrentShortEma > state.CurrentLongEma) return "Bullish Cross";
-            if (state.CurrentShortEma < state.CurrentLongEma) return "Bearish Cross";
-            return "Neutral";
         }
 
         public void WarmupIndicators(string securityId, TimeSpan timeframe, int shortEma, int longEma)
