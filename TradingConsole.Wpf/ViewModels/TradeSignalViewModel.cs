@@ -32,7 +32,6 @@ namespace TradingConsole.Wpf.ViewModels
         private FactorSentiment _sentiment;
         public FactorSentiment Sentiment { get => _sentiment; set { _sentiment = value; OnPropertyChanged(); } }
 
-        // --- NEW PROPERTY ADDED ---
         private string _stabilityText = string.Empty;
         public string StabilityText { get => _stabilityText; set { _stabilityText = value; OnPropertyChanged(); } }
 
@@ -55,17 +54,17 @@ namespace TradingConsole.Wpf.ViewModels
 
         public TradeSignalViewModel()
         {
+            NiftyAnalysisResult = new AnalysisResult { Symbol = "Initializing..." };
         }
 
         public void UpdateSignalResult(AnalysisResult newResult)
         {
-            // This view is only for indices, specifically the first one it receives (assumed to be Nifty).
-            if (newResult.Symbol != "Nifty 50")
+            if (newResult.InstrumentGroup != "INDEX")
             {
                 return;
             }
 
-            if (NiftyAnalysisResult == null)
+            if (NiftyAnalysisResult?.Symbol == "Initializing..." || NiftyAnalysisResult?.SecurityId != newResult.SecurityId)
             {
                 NiftyAnalysisResult = newResult;
             }
@@ -77,15 +76,15 @@ namespace TradingConsole.Wpf.ViewModels
             UpdateFactorLists(NiftyAnalysisResult);
         }
 
-        /// <summary>
-        /// Processes an AnalysisResult and categorizes its data points into Bullish and Bearish lists for the UI.
-        /// </summary>
         private void UpdateFactorLists(AnalysisResult result)
         {
             BullishFactors.Clear();
             BearishFactors.Clear();
 
             var allFactors = new List<FactorViewModel>();
+
+            // --- NEW: Add the Micro-Flow signal to the factor list ---
+            AddFactor(allFactors, "Micro-Flow (15s)", result.MicroFlowSignal, result.MicroFlowSignalStability, s => s.Contains("Buying") ? FactorSentiment.Bullish : s.Contains("Selling") ? FactorSentiment.Bearish : FactorSentiment.Neutral);
 
             // Market Structure & Context
             AddFactor(allFactors, "Multi-Day Structure", result.MarketStructure, result.MarketStructureStability, s => s.Contains("Up") ? FactorSentiment.Bullish : s.Contains("Down") ? FactorSentiment.Bearish : FactorSentiment.Neutral);
@@ -125,12 +124,9 @@ namespace TradingConsole.Wpf.ViewModels
             }
         }
 
-        /// <summary>
-        /// Helper method to create and add a factor to the list.
-        /// </summary>
         private void AddFactor(List<FactorViewModel> factors, string name, string value, string stabilityText, Func<string, FactorSentiment> sentimentEvaluator)
         {
-            if (string.IsNullOrEmpty(value) || value == "N/A" || value == "Neutral")
+            if (string.IsNullOrEmpty(value) || value == "N/A" || value == "Neutral" || value == "Building...")
                 return;
 
             var sentiment = sentimentEvaluator(value);
@@ -140,30 +136,10 @@ namespace TradingConsole.Wpf.ViewModels
             }
         }
 
-        /// <summary>
-        /// Overload for numeric values.
-        /// </summary>
-        private void AddFactor<T>(List<FactorViewModel> factors, string name, string value, string stabilityText, Func<T, FactorSentiment> sentimentEvaluator) where T : struct
-        {
-            if (string.IsNullOrEmpty(value) || value == "N/A" || value == "Neutral")
-                return;
-
-            // This is a simplified version; a real implementation would need to parse T from the string value.
-            // For this use case, the string-based evaluation is sufficient.
-            var sentiment = sentimentEvaluator(default(T)); // This part needs more robust logic if used.
-            if (sentiment != FactorSentiment.Neutral)
-            {
-                factors.Add(new FactorViewModel { FactorName = name, FactorValue = value, StabilityText = stabilityText, Sentiment = sentiment });
-            }
-        }
-
-
-        #region INotifyPropertyChanged
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-        #endregion
     }
 }

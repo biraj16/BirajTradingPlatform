@@ -50,8 +50,6 @@ namespace TradingConsole.Wpf.Services
             if (isChoppy)
             {
                 playbook = "Choppy / Conflicting Signals";
-                // --- THE FIX: The line that overrode the MarketThesis has been REMOVED ---
-                // result.MarketThesis = MarketThesis.Choppy; // This incorrect override is now gone.
             }
             else if (result.MarketThesis == MarketThesis.Bullish_Breakout_Attempt) playbook = "Bullish Breakout Attempt";
             else if (result.MarketThesis == MarketThesis.Bearish_Breakdown_Attempt) playbook = "Bearish Breakdown Attempt";
@@ -92,40 +90,31 @@ namespace TradingConsole.Wpf.Services
             bool isAtSupport = result.CustomLevelSignal == "At Key Support" || result.DayRangeSignal == "Near Low" || result.VwapBandSignal == "At Lower Band";
             bool isAtResistance = result.CustomLevelSignal == "At Key Resistance" || result.DayRangeSignal == "Near High" || result.VwapBandSignal == "At Upper Band";
 
-            // --- NEW: Define a strong, confirmed intraday trend ---
             bool strongBullishIntradayTrend = result.PriceVsVwapSignal == "Above VWAP" && result.EmaSignal5Min == "Bullish Cross";
             bool strongBearishIntradayTrend = result.PriceVsVwapSignal == "Below VWAP" && result.EmaSignal5Min == "Bearish Cross";
 
-            // --- REVISED LOGIC ---
             if (result.MarketStructure == "Trending Up")
             {
-                // Still neutralize weak bearish signals in a strong uptrend.
                 if (currentConviction < 0 && !strongBearishIntradayTrend) return 0;
-                // Reward pullbacks to support.
                 if (currentConviction > 0 && isAtSupport) return currentConviction + 2;
             }
 
             if (result.MarketStructure == "Trending Down")
             {
-                // Still neutralize weak bullish signals in a strong downtrend.
                 if (currentConviction > 0 && !strongBullishIntradayTrend) return 0;
-                // Reward pullbacks to resistance.
                 if (currentConviction < 0 && isAtResistance) return currentConviction - 2;
             }
 
-            // --- THE OVERRIDE: If a strong intraday trend is confirmed, give it a major boost ---
-            // This allows it to overcome conflicting multi-day signals.
             if (strongBullishIntradayTrend && currentConviction > 0)
             {
-                return currentConviction + 3; // Boost conviction to confirm the new trend
+                return currentConviction + 3;
             }
 
             if (strongBearishIntradayTrend && currentConviction < 0)
             {
-                return currentConviction - 3; // Boost conviction to confirm the new trend
+                return currentConviction - 3;
             }
 
-            // If no strong conditions are met, return the original score.
             return currentConviction;
         }
 
@@ -137,7 +126,6 @@ namespace TradingConsole.Wpf.Services
             int bearScore = 0;
             MarketThesis finalThesis = baseThesis;
 
-            // --- REVISED LOGIC: Build the list of drivers to evaluate dynamically ---
             var driversToEvaluate = new List<SignalDriver>();
 
             switch (baseThesis)
@@ -151,8 +139,6 @@ namespace TradingConsole.Wpf.Services
                     break;
 
                 case MarketThesis.Balancing:
-                    // In a balancing market, consider BOTH range-bound and trending drivers.
-                    // This allows the score to build up for a potential breakout.
                     driversToEvaluate.AddRange(_settingsViewModel.Strategy.RangeBoundBullishDrivers);
                     driversToEvaluate.AddRange(_settingsViewModel.Strategy.RangeBoundBearishDrivers);
                     driversToEvaluate.AddRange(_settingsViewModel.Strategy.TrendingBullDrivers);
@@ -166,7 +152,6 @@ namespace TradingConsole.Wpf.Services
                 driversToEvaluate.AddRange(_settingsViewModel.Strategy.VolatileBearishDrivers);
             }
 
-            // Ensure we only evaluate each driver once
             driversToEvaluate = driversToEvaluate.Distinct().ToList();
 
             foreach (var driver in driversToEvaluate.Where(d => d.IsEnabled))
@@ -180,14 +165,10 @@ namespace TradingConsole.Wpf.Services
 
             int initialScore = bullScore + bearScore;
 
-            // --- IMPROVEMENT: Enhanced logic to detect and handle a breakout attempt ---
             if (baseThesis == MarketThesis.Balancing)
             {
-                // Trigger 1: Price breaks the Initial Balance with strong conviction
                 bool ibBreakout = initialScore >= 5 && (r.InitialBalanceSignal == "IB Breakout" || r.InitialBalanceSignal == "IB Extension Up");
                 bool ibBreakdown = initialScore <= -5 && (r.InitialBalanceSignal == "IB Breakdown" || r.InitialBalanceSignal == "IB Extension Down");
-
-                // Trigger 2: Price breaks the developing Value Area with strong conviction (effective later in the day)
                 bool vahBreakout = initialScore >= 5 && r.LTP > r.DevelopingVah && r.DevelopingVah > 0;
                 bool valBreakdown = initialScore <= -5 && r.LTP < r.DevelopingVal && r.DevelopingVal > 0;
 
@@ -195,8 +176,6 @@ namespace TradingConsole.Wpf.Services
                 {
                     finalThesis = MarketThesis.Bullish_Breakout_Attempt;
                     driversToEvaluate = _settingsViewModel.Strategy.BreakoutBullishDrivers.Concat(_settingsViewModel.Strategy.BreakoutBearishDrivers).ToList();
-
-                    // Recalculate score with the breakout playbook
                     bullScore = 0;
                     bearScore = 0;
                     foreach (var driver in driversToEvaluate.Where(d => d.IsEnabled))
@@ -212,8 +191,6 @@ namespace TradingConsole.Wpf.Services
                 {
                     finalThesis = MarketThesis.Bearish_Breakdown_Attempt;
                     driversToEvaluate = _settingsViewModel.Strategy.BreakoutBullishDrivers.Concat(_settingsViewModel.Strategy.BreakoutBearishDrivers).ToList();
-
-                    // Recalculate score with the breakout playbook
                     bullScore = 0;
                     bearScore = 0;
                     foreach (var driver in driversToEvaluate.Where(d => d.IsEnabled))
@@ -253,6 +230,12 @@ namespace TradingConsole.Wpf.Services
 
             switch (driverName)
             {
+                // --- NEW CASES ADDED ---
+                case "Aggressive Buying Pressure":
+                    return r.MicroFlowSignal == "Aggressive Buying";
+                case "Aggressive Selling Pressure":
+                    return r.MicroFlowSignal == "Aggressive Selling";
+
                 // Confluence Signals
                 case "Confluence Momentum (Bullish)":
                     return r.PriceVsVwapSignal == "Above VWAP" && r.EmaSignal5Min == "Bullish Cross" && r.InstitutionalIntent.Contains("Bullish");
@@ -328,25 +311,21 @@ namespace TradingConsole.Wpf.Services
             return MarketThesis.Balancing;
         }
 
-        // --- IMPROVEMENT: More robust "Dominant Player" logic using a weighted score ---
         private DominantPlayer DetermineDominantPlayer(AnalysisResult result)
         {
             int buyerScore = 0;
             int sellerScore = 0;
 
-            // Price Action (Weight: 2)
             if (result.PriceVsVwapSignal == "Above VWAP") buyerScore += 2;
             if (result.PriceVsVwapSignal == "Below VWAP") sellerScore += 2;
             if (result.LTP > result.DevelopingPoc && result.DevelopingPoc > 0) buyerScore += 1;
             if (result.LTP < result.DevelopingPoc && result.DevelopingPoc > 0) sellerScore += 1;
 
-            // Momentum (Weight: 1)
             if (result.EmaSignal5Min == "Bullish Cross") buyerScore += 1;
             if (result.EmaSignal5Min == "Bearish Cross") sellerScore += 1;
             if (result.RsiValue5Min > 60) buyerScore += 1;
             if (result.RsiValue5Min < 40) sellerScore += 1;
 
-            // Order Flow (Weight: 2)
             if (result.OiSignal == "Long Buildup") buyerScore += 2;
             if (result.OiSignal == "Short Buildup") sellerScore += 2;
             if (result.OiSignal == "Short Covering") buyerScore += 1;

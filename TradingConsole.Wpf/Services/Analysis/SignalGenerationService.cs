@@ -15,13 +15,15 @@ namespace TradingConsole.Wpf.Services
         private readonly SettingsViewModel _settingsViewModel;
         private readonly HistoricalIvService _historicalIvService;
         private readonly IndicatorService _indicatorService;
+        private readonly MicroFlowService _microFlowService;
 
-        public SignalGenerationService(AnalysisStateManager stateManager, SettingsViewModel settingsViewModel, HistoricalIvService historicalIvService, IndicatorService indicatorService)
+        public SignalGenerationService(AnalysisStateManager stateManager, SettingsViewModel settingsViewModel, HistoricalIvService historicalIvService, IndicatorService indicatorService, MicroFlowService microFlowService)
         {
             _stateManager = stateManager;
             _settingsViewModel = settingsViewModel;
             _historicalIvService = historicalIvService;
             _indicatorService = indicatorService;
+            _microFlowService = microFlowService;
         }
 
         public void GenerateAllSignals(DashboardInstrument instrument, DashboardInstrument instrumentForAnalysis, AnalysisResult result, System.Collections.ObjectModel.ObservableCollection<OptionChainRow> optionChain)
@@ -45,6 +47,8 @@ namespace TradingConsole.Wpf.Services
             }
 
             _stateManager.TickAnalysisState[instrumentForAnalysis.SecurityId] = tickState;
+            _microFlowService.AddTick(instrumentForAnalysis.SecurityId, instrumentForAnalysis.LTP, instrumentForAnalysis.LastTradedQuantity);
+            result.MicroFlowSignal = _microFlowService.AnalyzeMicroFlow(instrumentForAnalysis.SecurityId);
 
 
             var (priceVsVwap, priceVsClose, dayRange) = CalculatePriceActionSignals(instrument, result.Vwap);

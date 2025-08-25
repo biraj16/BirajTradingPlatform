@@ -7,6 +7,14 @@ using TradingConsole.Wpf.ViewModels;
 
 namespace TradingConsole.Wpf.Services.Analysis
 {
+    // A simple struct to hold individual tick data for micro-flow analysis
+    public struct TickData
+    {
+        public DateTime Timestamp { get; set; }
+        public decimal Price { get; set; }
+        public long Volume { get; set; }
+    }
+
     /// <summary>
     /// Manages the various state dictionaries required for real-time market analysis.
     /// This includes states for indicators, market profiles, IV, candles, and more.
@@ -29,6 +37,9 @@ namespace TradingConsole.Wpf.Services.Analysis
         public ConcurrentDictionary<string, ConcurrentDictionary<TimeSpan, RsiState>> MultiTimeframeRsiState { get; } = new();
         public ConcurrentDictionary<string, ConcurrentDictionary<TimeSpan, AtrState>> MultiTimeframeAtrState { get; } = new();
         public ConcurrentDictionary<string, ConcurrentDictionary<TimeSpan, ObvState>> MultiTimeframeObvState { get; } = new();
+
+        // --- NEW: Added a dictionary to hold the queue of recent ticks for micro-flow analysis ---
+        public ConcurrentDictionary<string, ConcurrentQueue<TickData>> RecentTicks { get; } = new();
 
         public ConcurrentDictionary<string, IntradayIvState> IntradayIvStates { get; } = new();
         public ConcurrentDictionary<string, IntradayIvState.CustomLevelState> CustomLevelStates { get; } = new();
@@ -61,6 +72,7 @@ namespace TradingConsole.Wpf.Services.Analysis
             MultiTimeframeRsiState[securityId] = new ConcurrentDictionary<TimeSpan, RsiState>();
             MultiTimeframeAtrState[securityId] = new ConcurrentDictionary<TimeSpan, AtrState>();
             MultiTimeframeObvState[securityId] = new ConcurrentDictionary<TimeSpan, ObvState>();
+            RecentTicks[securityId] = new ConcurrentQueue<TickData>(); // Initialize the tick queue
             IsInVolatilitySqueeze[securityId] = false;
 
             if (instrumentType == "INDEX")

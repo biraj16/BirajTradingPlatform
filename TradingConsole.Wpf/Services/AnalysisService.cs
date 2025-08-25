@@ -29,6 +29,7 @@ namespace TradingConsole.Wpf.Services
         private readonly IndicatorService _indicatorService;
         private readonly SignalGenerationService _signalGenerationService;
         private readonly ThesisSynthesizer _thesisSynthesizer;
+        private readonly MicroFlowService _microFlowService;
         private readonly Dictionary<string, DashboardInstrument> _instrumentCache = new();
         private readonly Dictionary<string, DateTime> _nearestExpiryDates = new();
         private readonly MainViewModel _mainViewModel;
@@ -44,8 +45,9 @@ namespace TradingConsole.Wpf.Services
             _marketProfileService = marketProfileService;
             _indicatorStateService = indicatorStateService;
             _stateManager = new AnalysisStateManager();
+            _microFlowService = new MicroFlowService(_stateManager);
             _indicatorService = new IndicatorService(_stateManager);
-            _signalGenerationService = new SignalGenerationService(_stateManager, settingsViewModel, historicalIvService, _indicatorService);
+            _signalGenerationService = new SignalGenerationService(_stateManager, settingsViewModel, historicalIvService, _indicatorService, _microFlowService);
             _thesisSynthesizer = new ThesisSynthesizer(settingsViewModel, signalLoggerService, notificationService, _stateManager);
             _mainViewModel = mainViewModel;
         }
@@ -64,10 +66,8 @@ namespace TradingConsole.Wpf.Services
 
         public void OnInstrumentDataReceived(DashboardInstrument instrument, decimal underlyingPrice)
         {
-            if (!IsMarketOpen()) return;
-
             var lastTradeDateTime = DateTimeOffset.FromUnixTimeSeconds(instrument.LastTradeTime).UtcDateTime;
-            if ((DateTime.UtcNow - lastTradeDateTime).TotalSeconds > 15)
+            if ((DateTime.UtcNow - lastTradeDateTime).TotalSeconds > 15 && IsMarketOpen()) // Only check for stale data if market is open
             {
                 Debug.WriteLine($"[AnalysisService] Stale data received for {instrument.DisplayName}. Skipping analysis.");
                 return;
@@ -108,11 +108,25 @@ namespace TradingConsole.Wpf.Services
 
             if (currentCandle == null || currentCandle.Timestamp != candleTimestamp)
             {
-                // --- NEW LOGIC: A new candle is about to be formed. ---
-                // The 'currentCandle' is now the last *completed* candle.
+                // --- THE FIX: Only form a new candle if the market is actually open ---
+                if (!IsMarketOpen())
+                {
+                    // If the market is closed, we don't want to create a new, invalid candle.
+                    // But we still allow the *last* candle to be updated with the final closing ticks.
+                    if (currentCandle != null)
+                    {
+                        currentCandle.High = Math.Max(currentCandle.High, instrument.LTP);
+                        currentCandle.Low = Math.Min(currentCandle.Low, instrument.LTP);
+                        currentCandle.Close = instrument.LTP;
+                        currentCandle.Volume += instrument.LastTradedQuantity;
+                        currentCandle.OpenInterest = (long)instrument.OpenInterest;
+                        CandleUpdated?.Invoke(instrument.SecurityId, currentCandle, timeframe);
+                    }
+                    return false; // Prevent a new candle from being formed.
+                }
+
                 if (currentCandle != null)
                 {
-                    // Update the persistent EMA state with the final data from the completed candle.
                     var priceState = _stateManager.MultiTimeframePriceEmaState[instrument.SecurityId][timeframe];
                     _indicatorService.UpdateEmaState(currentCandle, priceState, _settingsViewModel.ShortEmaLength, _settingsViewModel.LongEmaLength, false);
 
@@ -130,10 +144,9 @@ namespace TradingConsole.Wpf.Services
             }
             else
             {
-                // This is the currently forming candle, update its values on every tick.
                 currentCandle.High = Math.Max(currentCandle.High, instrument.LTP);
                 currentCandle.Low = Math.Min(currentCandle.Low, instrument.LTP);
-                currentCandle.Close = instrument.LTP; // Live price
+                currentCandle.Close = instrument.LTP;
                 currentCandle.Volume += instrument.LastTradedQuantity;
                 currentCandle.OpenInterest = (long)instrument.OpenInterest;
                 CandleUpdated?.Invoke(instrument.SecurityId, currentCandle, timeframe);
@@ -153,7 +166,7 @@ namespace TradingConsole.Wpf.Services
 
             _signalGenerationService.GenerateAllSignals(instrument, instrumentForAnalysis, result, _mainViewModel.OptionChainRows);
 
-            if (newCandleFormed)
+            if (newCandleFormed && IsMarketOpen()) // Only synthesize new signals during market hours
             {
                 _thesisSynthesizer.SynthesizeTradeSignal(result);
             }
@@ -191,7 +204,6 @@ namespace TradingConsole.Wpf.Services
 
         public void SaveIndicatorStates()
         {
-            // --- THE FIX: Ensure all processed timeframes are saved ---
             var timeframes = new[] { TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(3), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(15) };
             foreach (var securityId in _stateManager.MultiTimeframePriceEmaState.Keys)
             {
@@ -406,6 +418,7 @@ namespace TradingConsole.Wpf.Services
                 indexResult.OiSignal = futureResult.OiSignal;
                 indexResult.IntradayIvSpikeSignal = futureResult.IntradayIvSpikeSignal;
                 indexResult.CandleSignal5Min = futureResult.CandleSignal5Min;
+                indexResult.MicroFlowSignal = futureResult.MicroFlowSignal; // Also link the new micro-flow signal
             }
         }
         public void SaveLiveMarketProfiles()

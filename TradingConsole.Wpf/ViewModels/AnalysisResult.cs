@@ -99,6 +99,12 @@ namespace TradingConsole.Wpf.ViewModels
         public string OiSignal { get => _oiSignal; set => SetSignalProperty(ref _oiSignal, value); }
         public string OiSignalStability => GetStabilityText(nameof(OiSignal));
 
+        // --- NEW PROPERTY ADDED ---
+        private string _microFlowSignal = "Building...";
+        public string MicroFlowSignal { get => _microFlowSignal; set => SetSignalProperty(ref _microFlowSignal, value); }
+        public string MicroFlowSignalStability => GetStabilityText(nameof(MicroFlowSignal));
+
+
         private string _instrumentGroup = string.Empty;
         public string InstrumentGroup { get => _instrumentGroup; set => SetProperty(ref _instrumentGroup, value); }
 
